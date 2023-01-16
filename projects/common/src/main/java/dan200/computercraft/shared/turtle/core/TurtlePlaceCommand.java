@@ -30,6 +30,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -177,7 +178,7 @@ public class TurtlePlaceCommand implements TurtleCommand {
         var item = stack.getItem();
         var existingTile = turtle.getLevel().getBlockEntity(position);
 
-        var placed = doDeployOnBlock(stack, turtlePlayer, hit).consumesAction();
+        var placed = doDeployOnBlock(stack, turtle, turtlePlayer, hit).consumesAction();
 
         // Set text on signs
         if (placed && item instanceof SignItem && extraArguments != null && extraArguments.length >= 1 && extraArguments[0] instanceof String message) {
@@ -202,10 +203,33 @@ public class TurtlePlaceCommand implements TurtleCommand {
      * @return If this item was deployed.
      */
     private static InteractionResult doDeployOnBlock(
-        ItemStack stack, TurtlePlayer turtlePlayer, BlockHitResult hit
+        ItemStack stack, ITurtleAccess turtle, TurtlePlayer turtlePlayer, BlockHitResult hit
     ) {
         var result = PlatformHelper.get().useOn(turtlePlayer.player(), stack, hit);
         if (result != InteractionResult.PASS) return result;
+
+        // If the turtle is right beside the hit block, try to use it
+        // Allows turtle to interact with levers/buttons, use buckets/bottles on cauldrons
+        if (areAdjacent(turtle.getPosition(), hit.getBlockPos())) {
+            BlockState statey = turtlePlayer.player().level.getBlockState(hit.getBlockPos());
+            Block blocky = turtlePlayer.player().level.getBlockState(hit.getBlockPos()).getBlock();
+            System.out.println(blocky.getDescriptionId());
+            // result = statey.use(turtlePlayer.player().level, turtlePlayer.player(), InteractionHand.MAIN_HAND, hit);
+
+            // Try to interact with the block first (cauldrons + bucket/bottles)
+            // moved away from this because we need to ignore some fails? :/
+            result = turtlePlayer.player().gameMode.useItemOn(turtlePlayer.player(), turtlePlayer.player().level, stack, InteractionHand.MAIN_HAND, hit);
+            if (result == InteractionResult.FAIL) {
+                System.out.println("FAIL");
+            } else if (result == InteractionResult.CONSUME) {
+                System.out.println("CONSUME");
+            } else if (result == InteractionResult.PASS) {
+                System.out.println("PASS");
+            } else {
+                System.out.println("ELSE");
+            }
+            if (result != InteractionResult.PASS) return result;
+        }
 
         // We special case some items which we allow to place "normally". Yes, this is very ugly.
         var item = stack.getItem();
@@ -214,6 +238,23 @@ public class TurtlePlaceCommand implements TurtleCommand {
         }
 
         return InteractionResult.PASS;
+    }
+
+    /**
+     * Returns true if the BlockPos's are right beside eachother (horizontally or vertically)
+     * @param pos1
+     * @param pos2
+     * @return
+     */
+    private static boolean areAdjacent(BlockPos pos1, BlockPos pos2) {
+        if (Math.abs(pos1.getX() - pos2.getX()) == 1) {
+            return pos1.getY() == pos2.getY() && pos1.getZ() == pos2.getZ();
+        } else if (Math.abs(pos1.getY() - pos2.getY()) == 1) {
+            return pos1.getX() == pos2.getX() && pos1.getZ() == pos2.getZ();
+        } else if (Math.abs(pos1.getZ() - pos2.getZ()) == 1) {
+            return pos1.getX() == pos2.getX() && pos1.getY() == pos2.getY();
+        }
+        return false;
     }
 
     private static void setSignText(Level world, BlockEntity tile, String message) {
