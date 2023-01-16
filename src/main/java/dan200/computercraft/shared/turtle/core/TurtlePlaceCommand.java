@@ -235,7 +235,7 @@ public class TurtlePlaceCommand implements ITurtleCommand
         Item item = stack.getItem();
         BlockEntity existingTile = turtle.getLevel().getBlockEntity( position );
 
-        boolean placed = doDeployOnBlock( stack, turtlePlayer, position, context, hit ).consumesAction();
+        boolean placed = doDeployOnBlock( stack, turtle, turtlePlayer, position, context, hit ).consumesAction();
 
         // Set text on signs
         if( placed && item instanceof SignItem && extraArguments != null && extraArguments.length >= 1 && extraArguments[0] instanceof String message )
@@ -265,7 +265,7 @@ public class TurtlePlaceCommand implements ITurtleCommand
      * @see net.minecraft.server.level.ServerPlayerGameMode#useItemOn  For the original implementation.
      */
     private static InteractionResult doDeployOnBlock(
-        @Nonnull ItemStack stack, TurtlePlayer turtlePlayer, BlockPos position, UseOnContext context, BlockHitResult hit
+        @Nonnull ItemStack stack, ITurtleAccess turtle, TurtlePlayer turtlePlayer, BlockPos position, UseOnContext context, BlockHitResult hit
     )
     {
         PlayerInteractEvent.RightClickBlock event = ForgeHooks.onRightClickBlock( turtlePlayer, InteractionHand.MAIN_HAND, position, hit );
@@ -283,6 +283,23 @@ public class TurtlePlaceCommand implements ITurtleCommand
             if( result != InteractionResult.PASS ) return result;
         }
 
+        // If the turtle is right beside the hit block, try to use it
+        // Allows turtle use buckets/bottles on cauldrons/levers/buttons
+        if (areAdjacent(turtle.getPosition(), hit.getBlockPos())) {
+            BlockState blockState = turtle.getLevel().getBlockState(hit.getBlockPos());
+            InteractionResult result = blockState.use(turtle.getLevel(), turtlePlayer, InteractionHand.MAIN_HAND, hit);
+            if (result == InteractionResult.FAIL) {
+                System.out.println("FAIL");
+            } else if (result == InteractionResult.CONSUME) {
+                System.out.println("CONSUME");
+            } else if (result == InteractionResult.PASS) {
+                System.out.println("PASS");
+            } else {
+                System.out.println("ELSE");
+            }
+            if (result != InteractionResult.PASS) return result;
+        }
+
         Item item = stack.getItem();
         if( item instanceof BucketItem || item instanceof BoatItem || item instanceof PlaceOnWaterBlockItem || item instanceof BottleItem )
         {
@@ -298,6 +315,23 @@ public class TurtlePlaceCommand implements ITurtleCommand
         }
 
         return InteractionResult.PASS;
+    }
+
+    /**
+     * Returns true if the BlockPos's are right beside eachother (horizontally or vertically)
+     * @param pos1
+     * @param pos2
+     * @return
+     */
+    private static boolean areAdjacent(BlockPos pos1, BlockPos pos2) {
+        if (Math.abs(pos1.getX() - pos2.getX()) == 1) {
+            return pos1.getY() == pos2.getY() && pos1.getZ() == pos2.getZ();
+        } else if (Math.abs(pos1.getY() - pos2.getY()) == 1) {
+            return pos1.getX() == pos2.getX() && pos1.getZ() == pos2.getZ();
+        } else if (Math.abs(pos1.getZ() - pos2.getZ()) == 1) {
+            return pos1.getX() == pos2.getX() && pos1.getY() == pos2.getY();
+        }
+        return false;
     }
 
     private static void setSignText( Level world, BlockEntity tile, String message )
