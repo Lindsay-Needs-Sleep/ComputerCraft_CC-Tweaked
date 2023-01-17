@@ -288,15 +288,6 @@ public class TurtlePlaceCommand implements ITurtleCommand
         if (areAdjacent(turtle.getPosition(), hit.getBlockPos())) {
             BlockState blockState = turtle.getLevel().getBlockState(hit.getBlockPos());
             InteractionResult result = blockState.use(turtle.getLevel(), turtlePlayer, InteractionHand.MAIN_HAND, hit);
-            if (result == InteractionResult.FAIL) {
-                System.out.println("FAIL");
-            } else if (result == InteractionResult.CONSUME) {
-                System.out.println("CONSUME");
-            } else if (result == InteractionResult.PASS) {
-                System.out.println("PASS");
-            } else {
-                System.out.println("ELSE");
-            }
             if (result != InteractionResult.PASS) return result;
         }
 
